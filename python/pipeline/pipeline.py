@@ -19,6 +19,7 @@ Example:
 ```
 """
 
+import os
 from concurrent.futures import Executor, ThreadPoolExecutor
 
 
@@ -33,15 +34,23 @@ class Stage:
 
 class ParallelStage(Stage):
 
-    def __init__(self, executor = ThreadPoolExecutor):
+    def __init__(self, executor: Executor = None, max_workers=None, **executor_kwargs):
         self.branches : list[Stage] = []
+        if executor is None:
+            executor = ThreadPoolExecutor
         self.executor : Executor = executor
+        if max_workers is None:
+            max_workers = os.cpu_count()
+        self.executor_kwargs = {
+            'max_workers': max_workers,
+            **executor_kwargs
+        }
 
     def add_branch(self, stage):
         self.branches.append(stage)
 
     def __call__(self, *args):
-        with self.executor() as executor:
+        with self.executor(**self.executor_kwargs) as executor:
             futures = [executor.submit(branch, *args) for branch in self.branches]
             results = [future.result() for future in futures]
         return results
